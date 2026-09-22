@@ -9,8 +9,27 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+// PrestaShop 1.7 does not load a module's `vendor/autoload.php`. Without this
+// require the Pixel\Module\Cloudflare classes simply do not exist for PHP, and
+// Symfony 3.4's ControllerResolver — which calls class_exists() before asking
+// the container — kills the route with a 500.
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
 class Pixel_cloudflare extends Module
 {
+    /**
+     * PrestaShop log severities.
+     *
+     * `PrestaShopLogger::LOG_SEVERITY_LEVEL_*` does not exist before PrestaShop 8
+     * — on 1.7.7.4 the class declares no constants at all — so referencing them
+     * throws "Undefined class constant" and returns a 500. One of the uses sits
+     * inside a catch block, where it also swallowed the original error.
+     */
+    private const SEVERITY_INFO = 1;
+    private const SEVERITY_ERROR = 3;
+
     /**
      * Module's constructor.
      */
@@ -99,7 +118,7 @@ class Pixel_cloudflare extends Module
                 }
                 PrestaShopLogger::addLog(
                     (string)$error['message'],
-                    PrestaShopLoggerCore::LOG_SEVERITY_LEVEL_ERROR
+                    self::SEVERITY_ERROR
                 );
             }
             foreach (($result['messages'] ?? []) as $message) {
@@ -108,19 +127,19 @@ class Pixel_cloudflare extends Module
                 }
                 PrestaShopLogger::addLog(
                     (string)$message['message'],
-                    PrestaShopLoggerCore::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    self::SEVERITY_INFO
                 );
             }
             if ($result['success'] ?? false) {
                 PrestaShopLogger::addLog(
                     $this->trans('Cloudflare cache has been flushed', [],'Modules.Pixelcloudflare.Admin'),
-                    PrestaShopLoggerCore::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    self::SEVERITY_INFO
                 );
             }
         } catch (Throwable $throwable) {
             PrestaShopLogger::addLog(
                 $this->trans('Unable to clear Cloudflare cache', [],'Modules.Pixelcloudflare.Admin'),
-                PrestaShopLoggerCore::LOG_SEVERITY_LEVEL_ERROR
+                self::SEVERITY_ERROR
             );
         }
     }

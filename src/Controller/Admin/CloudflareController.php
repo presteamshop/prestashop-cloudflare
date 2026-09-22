@@ -20,6 +20,12 @@ use Throwable;
 class CloudflareController extends FrameworkBundleAdminController
 {
     /**
+     * PrestaShop log severities — see the module class for why these exist.
+     */
+    private const SEVERITY_INFO = 1;
+    private const SEVERITY_ERROR = 3;
+
+    /**
      * @var Api $api
      */
     private $api;
@@ -75,8 +81,8 @@ class CloudflareController extends FrameworkBundleAdminController
         PrestaShopLogger::addLog(
             $message,
             $type === 'error' ?
-                PrestaShopLoggerCore::LOG_SEVERITY_LEVEL_ERROR :
-                PrestaShopLoggerCore::LOG_SEVERITY_LEVEL_INFORMATIVE
+                self::SEVERITY_ERROR :
+                self::SEVERITY_INFO
         );
     }
 }

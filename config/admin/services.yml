@@ -1,9 +1,27 @@
-# PrestaShop 1.7 compiles TWO containers: the legacy one (what `$this->get()`
-# sees from inside the module) and the Symfony one that resolves back office
-# routes. `config/services.yml` only feeds the former, so the route
-# `admin_cloudflare_clear_cache` could not find `pixel.cloudflare.controller`
-# and Symfony ended up treating the service id as a class name:
-# "The controller for URI "/modules/cloudflare/clearCache" is not callable.
-#  Class "pixel.cloudflare.controller" does not exist."
+# PrestaShop compiles TWO containers: the legacy one (what `$this->get()` sees
+# from inside the module) and the Symfony one that resolves back office routes.
+# `config/services.yml` only feeds the former.
 imports:
   - { resource: ../services.yml }
+
+services:
+  # The service id MUST be the class name. Symfony 3.4 (PrestaShop 1.7.x) runs
+  # ControllerResolver::createController(), which calls class_exists($id) BEFORE
+  # asking the container, so a friendly id like `pixel.cloudflare.controller`
+  # never resolves and the route dies with:
+  #   The controller for URI "/modules/cloudflare/clearCache" is not callable.
+  #   Class "pixel.cloudflare.controller" does not exist.
+  # Arbitrary service ids only work from Symfony 4.1 (PrestaShop 8). The
+  # controller.service_arguments tag is what puts it in the locator the resolver
+  # actually queries.
+  Pixel\Module\Cloudflare\Controller\Admin\CloudflareController:
+    class: 'Pixel\Module\Cloudflare\Controller\Admin\CloudflareController'
+    arguments:
+      - '@pixel.cloudflare.api'
+    public: true
+    tags: ['controller.service_arguments']
+
+  # Kept as an alias in case anything else referenced the old id.
+  pixel.cloudflare.controller:
+    alias: Pixel\Module\Cloudflare\Controller\Admin\CloudflareController
+    public: true

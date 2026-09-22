@@ -8,21 +8,43 @@
 
 This is a PresTeamShop fork of [Pixel-Open/prestashop-cloudflare](https://github.com/Pixel-Open/prestashop-cloudflare).
 
-It carries two fixes for PrestaShop 1.7.
+Upstream targets PrestaShop 8 / Symfony 4.4 but declares compatibility from
+1.7.6.0. On PrestaShop 1.7 the module does not work: **every one of its three
+entry points returns HTTP 500**. Measured and fixed on 1.7.7.4:
 
-**1. The module configuration screen returned HTTP 500.** That screen is served by `AdminModules`, a legacy controller,
-and the legacy container does not expose the `twig` service — so
-`$this->get('twig')` threw `ServiceNotFoundException`. The same call was used by
-the dashboard toolbar button. Both now render without Twig. Measured on 1.7.7.4.
+**1. The configuration screen — `You have requested a non-existent service "twig"`.**
+A module settings page is served by `AdminModules`, a legacy controller, and the
+legacy container does not expose `twig`. `js.twig` turned out to be plain
+JavaScript without a single Twig tag, so it is now read from disk.
 
-**2. The *Clear Cloudflare Cache* button returned HTTP 500** —
-`The controller for URI "/modules/cloudflare/clearCache" is not callable`.
-PrestaShop compiles two containers, and `config/services.yml` only feeds the
-legacy one, so the Symfony router never found `pixel.cloudflare.controller` and
-fell back to treating the service id as a class name. Added
-`config/admin/services.yml`, the same pattern PrestaShop's own modules use.
+**2. The dashboard toolbar button — same missing service.**
+Its markup is now built in PHP. `toolbar.html.twig` also relied on `path()`,
+which only exists inside Symfony's Twig environment, so the URL is resolved
+through the router; the button is skipped if the router is unreachable rather
+than breaking the page it renders on.
 
-Everything else is upstream, under its original MIT license.
+**3. *Clear Cloudflare Cache* — `The controller for URI "/modules/cloudflare/clearCache" is not callable. Class "pixel.cloudflare.controller" does not exist`.**
+Three things were missing, and each hid the next:
+- the controller was only registered in the legacy container, so the Symfony
+  router never saw it → added `config/admin/services.yml`;
+- it lacked the `controller.service_arguments` tag, without which it never
+  enters the locator the resolver queries;
+- and the service id was not a class name. Symfony 3.4 runs `class_exists($id)`
+  **before** asking the container, so friendly ids can never resolve — arbitrary
+  ids only work from Symfony 4.1. The service is now registered under its FQCN
+  (the old id is kept as an alias) and the route points at it.
+
+On top of that the classes were not autoloadable at all: PrestaShop 1.7 does not
+load a module's `vendor/autoload.php`, and this module never required it — unlike
+every module that does work on 1.7.
+
+**4. Both buttons — `Undefined class constant 'LOG_SEVERITY_LEVEL_ERROR'`.**
+`PrestaShopLogger` declares no severity constants before PrestaShop 8; the module
+referenced them six times. One sits inside a `catch`, where it also swallowed the
+original error it was trying to log. Replaced with module-level constants.
+
+All of it stays compatible with PrestaShop 8, where an FQCN service id is the
+standard. Everything else is upstream, under its original MIT license.
 
 ## Presentation
 
