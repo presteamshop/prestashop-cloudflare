@@ -151,9 +151,7 @@ class Pixel_cloudflare extends Module
             ]
         ];
 
-        return $this->get('twig')->render('@Modules/pixel_cloudflare/views/templates/admin/toolbar.html.twig', [
-            'buttons' => $buttons,
-        ]);
+        return $this->renderToolbar($buttons);
     }
 
     /*******************/
@@ -297,7 +295,16 @@ class Pixel_cloudflare extends Module
         }
 
         $form = $helper->generateForm([$form]);
-        $script = $this->get('twig')->render('@Modules/pixel_cloudflare/views/templates/admin/config/js.twig');
+
+        // `js.twig` holds plain JavaScript, without a single Twig tag, so it is
+        // read straight from disk. Asking the container for `twig` breaks on
+        // PrestaShop 1.7: a module configuration screen is served by the LEGACY
+        // controller AdminModules, and the legacy container does not expose that
+        // service, so `$this->get('twig')` throws ServiceNotFoundException and
+        // the whole page returns a 500.
+        $script = (string) @file_get_contents(
+            _PS_MODULE_DIR_ . $this->name . '/views/templates/admin/config/js.twig'
+        );
 
         return $form . $script;
     }
@@ -314,5 +321,55 @@ class Pixel_cloudflare extends Module
         }
 
         return true;
+    }
+    /**
+     * Render the toolbar buttons.
+     *
+     * Replaces `toolbar.html.twig`. Twig is not used for the same reason as in
+     * displayForm() — the legacy container has no `twig` service on PrestaShop
+     * 1.7 — and that template also relied on `path()`, which only exists inside
+     * Symfony's Twig environment. The URL is resolved through the router; if the
+     * router cannot be reached the button is skipped instead of breaking the
+     * page it is displayed on.
+     *
+     * @param mixed[] $buttons
+     *
+     * @return string
+     */
+    private function renderToolbar(array $buttons): string
+    {
+        try {
+            $container = \PrestaShop\PrestaShop\Adapter\SymfonyContainer::getInstance();
+            $router = $container !== null ? $container->get('router') : null;
+        } catch (\Throwable $e) {
+            return '';
+        }
+
+        if ($router === null) {
+            return '';
+        }
+
+        $html = '';
+        foreach ($buttons as $button) {
+            try {
+                $url = $router->generate($button['route']);
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            $icon = !empty($button['icon'])
+                ? '<i class="material-icons">' . htmlspecialchars((string) $button['icon'], ENT_QUOTES, 'UTF-8') . '</i>'
+                : '';
+
+            $html .= sprintf(
+                '<a class="%s" href="%s">%s%s</a>',
+                htmlspecialchars((string) ($button['class'] ?? ''), ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars((string) $url, ENT_QUOTES, 'UTF-8'),
+                $icon,
+                htmlspecialchars((string) ($button['label'] ?? ''), ENT_QUOTES, 'UTF-8')
+            );
+        }
+
+        return $html;
     }
 }

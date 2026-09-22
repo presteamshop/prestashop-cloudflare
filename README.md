@@ -4,6 +4,18 @@
 [![Minimum Prestashop Version](https://img.shields.io/badge/prestashop-%3E%3D%201.7.6.0-green)](https://www.prestashop.com)
 [![GitHub release](https://img.shields.io/github/v/release/Pixel-Open/prestashop-cloudflare)](https://github.com/Pixel-Open/prestashop-cloudflare/releases)
 
+## About this fork
+
+This is a PresTeamShop fork of [Pixel-Open/prestashop-cloudflare](https://github.com/Pixel-Open/prestashop-cloudflare).
+
+It carries one fix: **the module configuration screen returned HTTP 500 on
+PrestaShop 1.7**. That screen is served by `AdminModules`, a legacy controller,
+and the legacy container does not expose the `twig` service — so
+`$this->get('twig')` threw `ServiceNotFoundException`. The same call was used by
+the dashboard toolbar button. Both now render without Twig. Measured on 1.7.7.4.
+
+Everything else is upstream, under its original MIT license.
+
 ## Presentation
 
 Cloudflare API features in Prestashop:
