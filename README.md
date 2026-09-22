@@ -8,11 +8,19 @@
 
 This is a PresTeamShop fork of [Pixel-Open/prestashop-cloudflare](https://github.com/Pixel-Open/prestashop-cloudflare).
 
-It carries one fix: **the module configuration screen returned HTTP 500 on
-PrestaShop 1.7**. That screen is served by `AdminModules`, a legacy controller,
+It carries two fixes for PrestaShop 1.7.
+
+**1. The module configuration screen returned HTTP 500.** That screen is served by `AdminModules`, a legacy controller,
 and the legacy container does not expose the `twig` service — so
 `$this->get('twig')` threw `ServiceNotFoundException`. The same call was used by
 the dashboard toolbar button. Both now render without Twig. Measured on 1.7.7.4.
+
+**2. The *Clear Cloudflare Cache* button returned HTTP 500** —
+`The controller for URI "/modules/cloudflare/clearCache" is not callable`.
+PrestaShop compiles two containers, and `config/services.yml` only feeds the
+legacy one, so the Symfony router never found `pixel.cloudflare.controller` and
+fell back to treating the service id as a class name. Added
+`config/admin/services.yml`, the same pattern PrestaShop's own modules use.
 
 Everything else is upstream, under its original MIT license.
 

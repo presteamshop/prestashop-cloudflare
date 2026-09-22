@@ -1,0 +1,9 @@
+# PrestaShop 1.7 compiles TWO containers: the legacy one (what `$this->get()`
+# sees from inside the module) and the Symfony one that resolves back office
+# routes. `config/services.yml` only feeds the former, so the route
+# `admin_cloudflare_clear_cache` could not find `pixel.cloudflare.controller`
+# and Symfony ended up treating the service id as a class name:
+# "The controller for URI "/modules/cloudflare/clearCache" is not callable.
+#  Class "pixel.cloudflare.controller" does not exist."
+imports:
+  - { resource: ../services.yml }
